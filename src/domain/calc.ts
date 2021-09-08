@@ -1,3 +1,5 @@
+import { Decimal } from "decimal.js";
+
 // Common
 export type NumericLiteral = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 0;
 
@@ -8,18 +10,18 @@ export type Op = BinaryOp | "C" | "AC" | "+/-" | "%" | "." | "=";
 export const isTerm = (op: BinaryOp): op is Term => op === "*" || op === "/";
 
 // Number
-export type WrapNumber = { minus: boolean; positive: number };
+export type WrapNumber = { minus: boolean; positive: Decimal };
 
-export const num = (n: NumericLiteral): WrapNumber => ({ minus: false, positive: n });
+export const num = (n: NumericLiteral): WrapNumber => ({ minus: false, positive: new Decimal(n) });
 
 export const zero = (): WrapNumber => num(0);
 
-export const toNum = (number: WrapNumber): number =>
-  number.minus ? -number.positive : number.positive;
+export const toNum = (number: WrapNumber): Decimal =>
+  number.minus ? number.positive.neg() : number.positive;
 
-const fromNum = (num: number): WrapNumber => ({
-  minus: num < 0,
-  positive: Math.abs(num),
+const fromNum = (num: Decimal): WrapNumber => ({
+  minus: num.isNegative(),
+  positive: num.abs(),
 });
 
 export const apply = (op: BinaryOp, l: WrapNumber, r: WrapNumber): WrapNumber => {
@@ -27,23 +29,25 @@ export const apply = (op: BinaryOp, l: WrapNumber, r: WrapNumber): WrapNumber =>
   const dr = toNum(r);
   switch (op) {
     case "+":
-      return fromNum(dl + dr);
+      return fromNum(dl.add(dr));
     case "-":
-      return fromNum(dl - dr);
+      return fromNum(dl.sub(dr));
     case "*":
-      return fromNum(dl * dr);
+      return fromNum(dl.mul(dr));
     case "/":
-      return fromNum(dl / dr);
+      return fromNum(dl.div(dr));
   }
 };
 
 // State
-export enum State {
-  initial = "initial",
-  num_entered = "num_entered",
-  op_entered = "op_entered",
-  evaluated = "evaluated",
-}
+export const State = {
+  initial: "initial",
+  num_entered: "num_entered",
+  op_entered: "op_entered",
+  evaluated: "evaluated",
+} as const;
+
+export type State = typeof State[keyof typeof State];
 
 // Stack
 export type StackNumElement = { type: "num"; n: WrapNumber };
@@ -132,11 +136,12 @@ export class CalculatorModel {
       case State.num_entered:
         if (this.input) {
           if (this._point > 0) {
-            this.current.positive += Math.pow(10, -this._point) * n;
+            this.current.positive = this.current.positive.add(
+              new Decimal(10).pow(-this._point).mul(n)
+            );
             this._point++;
           } else {
-            this.current.positive *= 10;
-            this.current.positive += n;
+            this.current.positive = this.current.positive.mul(10).add(n);
           }
         } else {
           this.current = num(n);
@@ -264,16 +269,16 @@ export class CalculatorModel {
       case State.initial:
         break;
       case State.evaluated:
-        this.current.positive /= 100;
+        this.current.positive = this.current.positive.div(100);
         break;
       case State.op_entered: {
         const { op } = stackTop(this.stack) as StackOpElement;
         if (isTerm(op)) {
-          this.current.positive /= 100;
+          this.current.positive = this.current.positive.div(100);
         } else {
           const { n } = stack2nd(this.stack) as StackNumElement;
           const r = { ...this.current };
-          r.positive /= 100;
+          r.positive = r.positive.div(100);
           this.current = apply("*", n, r);
         }
         break;
@@ -286,10 +291,10 @@ export class CalculatorModel {
           this.stack.push(tmp);
 
           const p = { ...this.current };
-          p.positive /= 100;
+          p.positive = p.positive.div(100);
           this.current = apply("*", val, p);
         } else {
-          this.current.positive /= 100;
+          this.current.positive = this.current.positive.div(100);
         }
         break;
       }
@@ -341,7 +346,7 @@ export class CalculatorModel {
 
   // other
 
-  getCurrent(): number {
+  getCurrent(): Decimal {
     return toNum(this.current);
   }
 

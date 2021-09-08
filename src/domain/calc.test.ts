@@ -50,7 +50,7 @@ const makeCase = createMakeCase((events, expected) => {
     }
   });
 
-  expect(model.getCurrent()).toBe(expected);
+  expect(model.getCurrent().toNumber()).toBe(expected);
 });
 
 export const createCases = (makeCase: K): void => {

@@ -1,3 +1,4 @@
+import { Decimal } from "decimal.js";
 import { produce } from "immer";
 import {
   apply,
@@ -66,64 +67,78 @@ export const calculatorReducer = (state: State, action: Action): State => {
   }
 };
 
-const handleOp = (state: State, op: BinaryOp): State =>
-  produce(state, (draft) => {
-    switch (draft.type) {
-      case StateType.initial:
-      case StateType.evaluated:
-      case StateType.num_entered:
-        draft.stack.push({ type: "num", n: draft.current });
-        if (!isTerm(op)) draft.current = evalStack(draft.stack);
-        draft.stack.push({ type: "op", op: op });
-        draft.thunk = undefined;
-        draft.type = StateType.op_entered;
-        break;
-      case StateType.op_entered:
-        draft.stack.pop();
-        if (isTerm(op)) {
-          const { n } = stackTop(draft.stack) as StackNumElement;
-          draft.current = n;
-        } else {
-          draft.current = evalStack(draft.stack);
-        }
-        draft.stack.push({ type: "op", op });
-        break;
-    }
-  });
+const handleOp = (state: State, op: BinaryOp): State => {
+  switch (state.type) {
+    case StateType.initial:
+    case StateType.evaluated:
+    case StateType.num_entered: {
+      const stack: Stack = [...state.stack, { type: "num", n: state.current }];
+      const current = isTerm(op) ? state.current : evalStack(stack);
+      stack.push({ type: "op", op });
 
-const handleEq = (state: State): State =>
-  produce(state, (draft) => {
-    switch (draft.type) {
-      case StateType.initial:
-        return;
-      case StateType.evaluated:
-        if (draft.thunk) {
-          draft.current = apply(draft.thunk.op, draft.current, draft.thunk.r);
-        }
-        break;
-      case StateType.num_entered: {
-        const top = stackTop(draft.stack);
-        if (top) {
-          draft.thunk = { op: (top as StackOpElement).op, r: draft.current };
-        }
-        draft.stack.push({ type: "num", n: draft.current });
-        draft.current = evalStack(draft.stack);
-        break;
-      }
-      case StateType.op_entered:
-        draft.thunk = {
-          op: (stackTop(draft.stack) as StackOpElement).op,
-          r: (stack2nd(draft.stack) as StackNumElement).n,
-        };
-        draft.stack.push({ type: "num", n: draft.current });
-        draft.current = evalStack(draft.stack);
-        break;
+      return {
+        ...state,
+        current,
+        stack,
+        thunk: undefined,
+        type: StateType.op_entered,
+      };
     }
-    draft.point = 0;
-    draft.input = false;
-    draft.stack = [];
-    draft.type = StateType.evaluated;
-  });
+    case StateType.op_entered: {
+      const popped = state.stack.slice(0, state.stack.length - 1);
+      let current;
+      if (isTerm(op)) {
+        const { n } = stackTop(popped) as StackNumElement;
+        current = n;
+      } else {
+        current = evalStack(state.stack);
+      }
+      popped.push({ type: "op", op });
+      return { ...state, stack: popped, current };
+    }
+  }
+};
+
+const handleEq = (state: State): State => {
+  switch (state.type) {
+    case StateType.initial:
+      return state;
+    case StateType.evaluated:
+      return {
+        ...state,
+        current: state.thunk ? apply(state.thunk.op, state.current, state.thunk.r) : state.current,
+        point: 0,
+        input: false,
+        stack: [],
+        type: StateType.evaluated,
+      };
+    case StateType.num_entered: {
+      const top = stackTop(state.stack);
+      return {
+        ...state,
+        thunk: top ? { op: (top as StackOpElement).op, r: state.current } : undefined,
+        current: evalStack([...state.stack, { type: "num", n: state.current }]),
+        point: 0,
+        input: false,
+        stack: [],
+        type: StateType.evaluated,
+      };
+    }
+    case StateType.op_entered:
+      return {
+        ...state,
+        thunk: {
+          op: (stackTop(state.stack) as StackOpElement).op,
+          r: (stack2nd(state.stack) as StackNumElement).n,
+        },
+        current: evalStack([...state.stack, { type: "num", n: state.current }]),
+        point: 0,
+        input: false,
+        stack: [],
+        type: StateType.evaluated,
+      };
+  }
+};
 
 const handleC = (state: State): State =>
   produce(state, (draft) => {
@@ -172,11 +187,12 @@ const handleLit = (state: State, n: NumericLiteral): State =>
       case StateType.num_entered:
         if (draft.input) {
           if (draft.point > 0) {
-            draft.current.positive += Math.pow(10, -draft.point) * n;
+            draft.current.positive = draft.current.positive.add(
+              new Decimal(10).pow(-draft.point).mul(n)
+            );
             draft.point++;
           } else {
-            draft.current.positive *= 10;
-            draft.current.positive += n;
+            draft.current.positive = draft.current.positive.mul(10).add(n);
           }
         } else {
           draft.current = num(n);
@@ -187,44 +203,52 @@ const handleLit = (state: State, n: NumericLiteral): State =>
     draft.cleared = false;
   });
 
-const handlePercent = (state: State): State =>
-  produce(state, (draft) => {
-    switch (draft.type) {
-      case StateType.initial:
-        break;
-      case StateType.evaluated:
-        draft.current.positive /= 100;
-        break;
-      case StateType.op_entered: {
-        const { op } = stackTop(draft.stack) as StackOpElement;
-        if (isTerm(op)) {
-          draft.current.positive /= 100;
-        } else {
-          const { n } = stack2nd(draft.stack) as StackNumElement;
-          const r = draft.current;
-          r.positive /= 100;
-          draft.current = apply("*", n, r);
-        }
-        break;
+const handlePercent = (state: State): State => {
+  switch (state.type) {
+    case StateType.initial:
+      return state;
+    case StateType.evaluated:
+      return {
+        ...state,
+        current: { ...state.current, positive: state.current.positive.div(100) },
+        input: false,
+      };
+    case StateType.op_entered: {
+      const { op } = stackTop(state.stack) as StackOpElement;
+      let current;
+      if (isTerm(op)) {
+        current = { ...state.current, positive: state.current.positive.div(100) };
+      } else {
+        const { n } = stack2nd(state.stack) as StackNumElement;
+        const r = { ...state.current };
+        r.positive = r.positive.div(100);
+        current = apply("*", n, r);
       }
-      case StateType.num_entered: {
-        const top = stackTop(draft.stack);
-        if (top && top.type === "op" && !isTerm(top.op)) {
-          const tmp = draft.stack.pop()!;
-          const val = evalStack(draft.stack);
-          draft.stack.push(tmp);
-
-          const p = draft.current;
-          p.positive /= 100;
-          draft.current = apply("*", val, p);
-        } else {
-          draft.current.positive /= 100;
-        }
-        break;
-      }
+      return {
+        ...state,
+        current,
+        input: false,
+      };
     }
-    draft.input = false;
-  });
+    case StateType.num_entered: {
+      const top = stackTop(state.stack);
+
+      let current;
+      if (top && top.type === "op" && !isTerm(top.op)) {
+        const val = evalStack(state.stack.slice(0, state.stack.length - 1));
+        const p = { minus: state.current.minus, positive: state.current.positive.div(100) };
+        current = apply("*", val, p);
+      } else {
+        current = { ...state.current, positive: state.current.positive.div(100) };
+      }
+      return {
+        ...state,
+        current,
+        input: false,
+      };
+    }
+  }
+};
 
 const handlePoint = (state: State): State =>
   produce(state, (draft) => {
@@ -249,7 +273,7 @@ const handlePoint = (state: State): State =>
     draft.cleared = false;
   });
 
-export const getCurrent = (state: State): number => toNum(state.current);
+export const getCurrent = (state: State): Decimal => toNum(state.current);
 
 export const getActiveOp = (state: State): BinaryOp | undefined => {
   switch (state.type) {

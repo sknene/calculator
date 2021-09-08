@@ -72,42 +72,44 @@ export const Calculator: React.VFC = () => {
   };
 
   return (
-    <div className="w-80 mx-auto px-7 py-7 border border-gray-300 bg-gray-50 shadow-lg">
-      <button className="h-20 mb-8 text-gray-50 text-5xl bg-gray-400 rounded shadow-inner">
-        <svg className="w-full h-full" width="265" height="80" viewBox="0 0 265 80">
-          <text x="250" y="60" textAnchor="end" fill="currentColor">
-            {current.toLocaleString()}
-          </text>
-        </svg>
-      </button>
-      <div className="grid grid-cols-4 gap-3">
-        {inputNumber ? (
-          <Button type="top" label="C" onClick={handleClear} />
-        ) : (
-          <Button type="top" label="AC" onClick={handleAllClear} />
-        )}
-        <Button type="top" label="+/-" onClick={handlePlusMinus} />
-        <Button type="top" label="%" onClick={handlePercent} />
-        <Button type="op" label="÷" active={activeOp === "/"} onClick={handleDiv} />
+    <div className="min-h-screen flex justify-center items-center">
+      <div className="w-80 p-7 border border-gray-300 bg-gray-50 shadow-lg">
+        <button className="h-20 mb-8 text-gray-50 text-5xl bg-gray-400 rounded shadow-inner">
+          <svg className="w-full h-full" width="265" height="80" viewBox="0 0 265 80">
+            <text x="250" y="60" textAnchor="end" fill="currentColor">
+              {current.toLocaleString()}
+            </text>
+          </svg>
+        </button>
+        <div className="grid grid-cols-4 gap-3">
+          {inputNumber ? (
+            <Button type="top" label="C" onClick={handleClear} />
+          ) : (
+            <Button type="top" label="AC" onClick={handleAllClear} />
+          )}
+          <Button type="top" label="+/-" onClick={handlePlusMinus} />
+          <Button type="top" label="%" onClick={handlePercent} />
+          <Button type="op" label="÷" active={activeOp === "/"} onClick={handleDiv} />
 
-        <Button type="num" label="7" onClick={handleNum(7)} />
-        <Button type="num" label="8" onClick={handleNum(8)} />
-        <Button type="num" label="9" onClick={handleNum(9)} />
-        <Button type="op" label="×" active={activeOp === "*"} onClick={handleMul} />
+          <Button type="num" label="7" onClick={handleNum(7)} />
+          <Button type="num" label="8" onClick={handleNum(8)} />
+          <Button type="num" label="9" onClick={handleNum(9)} />
+          <Button type="op" label="×" active={activeOp === "*"} onClick={handleMul} />
 
-        <Button type="num" label="4" onClick={handleNum(4)} />
-        <Button type="num" label="5" onClick={handleNum(5)} />
-        <Button type="num" label="6" onClick={handleNum(6)} />
-        <Button type="op" label="-" active={activeOp === "-"} onClick={handleSub} />
+          <Button type="num" label="4" onClick={handleNum(4)} />
+          <Button type="num" label="5" onClick={handleNum(5)} />
+          <Button type="num" label="6" onClick={handleNum(6)} />
+          <Button type="op" label="-" active={activeOp === "-"} onClick={handleSub} />
 
-        <Button type="num" label="1" onClick={handleNum(1)} />
-        <Button type="num" label="2" onClick={handleNum(2)} />
-        <Button type="num" label="3" onClick={handleNum(3)} />
-        <Button type="op" label="+" active={activeOp === "+"} onClick={handleAdd} />
+          <Button type="num" label="1" onClick={handleNum(1)} />
+          <Button type="num" label="2" onClick={handleNum(2)} />
+          <Button type="num" label="3" onClick={handleNum(3)} />
+          <Button type="op" label="+" active={activeOp === "+"} onClick={handleAdd} />
 
-        <Button type="num" long={true} label="0" onClick={handleNum(0)} />
-        <Button type="num" label="." onClick={handlePoint} />
-        <Button type="op" label="=" onClick={handleEq} />
+          <Button type="num" long={true} label="0" onClick={handleNum(0)} />
+          <Button type="num" label="." onClick={handlePoint} />
+          <Button type="op" label="=" onClick={handleEq} />
+        </div>
       </div>
     </div>
   );

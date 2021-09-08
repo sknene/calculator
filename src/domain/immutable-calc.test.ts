@@ -4,7 +4,7 @@ import { Action, getActiveOp, initialState, calculatorReducer } from "./immutabl
 
 const makeCase = createMakeCase((events, expected) => {
   const state = events.reduce(calculatorReducer, initialState);
-  expect(toNum(state.current)).toBe(expected);
+  expect(toNum(state.current).toNumber()).toBe(expected);
 });
 
 createCases(makeCase);
