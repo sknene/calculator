@@ -1,12 +1,13 @@
 import clsx from "clsx";
-import { useReducer } from "react";
+import { useEffect, useReducer, useRef } from "react";
 import { NumericLiteral } from "../domain/calc";
 import {
   getActiveOp,
   getCurrent,
-  initialState,
   isInputNumber,
   calculatorReducer,
+  withInputRestriction,
+  extraInitialState,
 } from "../domain/immutable-calc";
 
 interface ButtonProps {
@@ -14,7 +15,7 @@ interface ButtonProps {
   long?: boolean;
   active?: boolean;
   label: string;
-  onClick?: () => void;
+  onClick: () => void;
 }
 
 const Button: React.VFC<ButtonProps> = ({ type, long, active, label, onClick }) => (
@@ -31,55 +32,55 @@ const Button: React.VFC<ButtonProps> = ({ type, long, active, label, onClick }) 
   </button>
 );
 
+const canvasWidth = 265;
+const canvasHeight = 80;
+const reducer = withInputRestriction(calculatorReducer);
+
 export const Calculator: React.VFC = () => {
-  const [state, dispatch] = useReducer(calculatorReducer, initialState);
+  const [state, dispatch] = useReducer(reducer, extraInitialState);
   const activeOp = getActiveOp(state);
   const current = getCurrent(state);
   const inputNumber = isInputNumber(state);
 
-  const handleClear = () => {
-    dispatch({ type: "op", op: "C" });
-  };
-  const handleAllClear = () => {
-    dispatch({ type: "op", op: "AC" });
-  };
-  const handleAdd = () => {
-    dispatch({ type: "op", op: "+" });
-  };
-  const handleSub = () => {
-    dispatch({ type: "op", op: "-" });
-  };
-  const handleMul = () => {
-    dispatch({ type: "op", op: "*" });
-  };
-  const handleDiv = () => {
-    dispatch({ type: "op", op: "/" });
-  };
-  const handlePoint = () => {
-    dispatch({ type: "op", op: "." });
-  };
-  const handlePercent = () => {
-    dispatch({ type: "op", op: "%" });
-  };
-  const handlePlusMinus = () => {
-    dispatch({ type: "op", op: "+/-" });
-  };
-  const handleEq = () => {
-    dispatch({ type: "op", op: "=" });
-  };
-  const handleNum = (n: NumericLiteral) => () => {
-    dispatch({ type: "lit", n });
-  };
+  const handleClear = () => dispatch({ type: "op", op: "C" });
+  const handleAllClear = () => dispatch({ type: "op", op: "AC" });
+  const handleAdd = () => dispatch({ type: "op", op: "+" });
+  const handleSub = () => dispatch({ type: "op", op: "-" });
+  const handleMul = () => dispatch({ type: "op", op: "*" });
+  const handleDiv = () => dispatch({ type: "op", op: "/" });
+  const handlePoint = () => dispatch({ type: "op", op: "." });
+  const handlePercent = () => dispatch({ type: "op", op: "%" });
+  const handlePlusMinus = () => dispatch({ type: "op", op: "+/-" });
+  const handleEq = () => dispatch({ type: "op", op: "=" });
+  const handleNum = (n: NumericLiteral) => () => dispatch({ type: "lit", n });
+
+  const canvasRef = useRef<HTMLCanvasElement>(null!);
+
+  useEffect(() => {
+    const ctx = canvasRef.current.getContext("2d")!;
+    const maxWidth = 240;
+    let fontSize = 60;
+    const text = current.toLocaleString();
+
+    ctx.fillStyle = "#eee";
+    let l = 0;
+    while (true) {
+      ctx.font = `${fontSize--}px Arial, meiryo, sans-serif`;
+      const metrics = ctx.measureText(text);
+      if (metrics.width < maxWidth) {
+        l = metrics.width;
+        break;
+      }
+    }
+    ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+    ctx.fillText(text, 250 - l, 65);
+  }, [current]);
 
   return (
     <div className="min-h-screen flex justify-center items-center">
       <div className="w-80 p-7 border border-gray-300 bg-gray-50 shadow-lg">
-        <button className="h-20 mb-8 text-gray-50 text-5xl bg-gray-400 rounded shadow-inner">
-          <svg className="w-full h-full" width="265" height="80" viewBox="0 0 265 80">
-            <text x="250" y="60" textAnchor="end" fill="currentColor">
-              {current.toLocaleString()}
-            </text>
-          </svg>
+        <button className="h-20 mb-8 bg-gray-400 rounded">
+          <canvas ref={canvasRef} width={canvasWidth} height={canvasHeight} />
         </button>
         <div className="grid grid-cols-4 gap-3">
           {inputNumber ? (

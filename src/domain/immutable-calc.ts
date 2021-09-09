@@ -273,6 +273,40 @@ const handlePoint = (state: State): State =>
     draft.cleared = false;
   });
 
+interface ExtraState extends State {
+  inputCount: number;
+}
+
+export const extraInitialState: ExtraState = { ...initialState, inputCount: 0 };
+
+export const withInputRestriction =
+  (reducer: (state: State, action: Action) => State, maxCount = 9) =>
+  (state: ExtraState, action: Action): ExtraState => {
+    switch (action.type) {
+      case "lit":
+        if (state.inputCount < maxCount) {
+          return { ...reducer(state, action), inputCount: state.inputCount + 1 };
+        } else {
+          return state;
+        }
+      case "op":
+        switch (action.op) {
+          case ".":
+            if (state.inputCount < maxCount) {
+              const inputCount =
+                state.type === StateType.num_entered ? state.inputCount : state.inputCount + 1;
+              return { ...reducer(state, action), inputCount };
+            } else {
+              return state;
+            }
+          case "+/-":
+            return { ...reducer(state, action), inputCount: state.inputCount };
+          default:
+            return { ...reducer(state, action), inputCount: 0 };
+        }
+    }
+  };
+
 export const getCurrent = (state: State): Decimal => toNum(state.current);
 
 export const getActiveOp = (state: State): BinaryOp | undefined => {
